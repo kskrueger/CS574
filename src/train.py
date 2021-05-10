@@ -4,6 +4,15 @@
 import math
 
 import tensorflow as tf
+
+gpus = tf.config.experimental.list_physical_devices('GPU')
+if gpus:
+    try:
+        for gpu in gpus:
+            tf.config.experimental.set_memory_growth(gpu, True)
+    except RuntimeError as e:
+        print(e)
+
 from tensorflow import keras
 from tensorflow.keras import layers
 from tensorflow.keras.utils import Sequence
@@ -49,15 +58,24 @@ ts_inputs = tf.keras.Input(shape=(timestep_size, 1))
 
 # units=10 -> The cell and hidden states will be of dimension 10.
 #             The number of parameters that need to be trained = 4*units*(units+2)
-x = layers.LSTM(units=50, return_sequences=True)(ts_inputs)
-x = layers.LSTM(units=50, return_sequences=True)(x)
-x = layers.LSTM(units=50)(x)
+x = layers.Conv1D(512, 2)(ts_inputs)
+x = layers.Dropout(0.2)(x)
+x = layers.Conv1D(256, 2)(x)
+x = layers.Dropout(0.2)(x)
+x = layers.Conv1D(128, 2)(x)
+x = layers.Dropout(0.2)(x)
+x = layers.Conv1D(64, 2)(x)
+x = layers.LSTM(units=200, return_sequences=True)(x)
+x = layers.Dropout(0.2)(x)
+# x = layers.LSTM(units=100, return_sequences=True)(x)
+# x = layers.Dropout(0.2)(x)
+x = layers.LSTM(units=100)(x)
 x = layers.Dropout(0.2)(x)
 outputs = layers.Dense(1, activation='linear')(x)
 model = tf.keras.Model(inputs=ts_inputs, outputs=outputs)
 
 # Specify the training configuration.
-model.compile(optimizer=tf.keras.optimizers.SGD(learning_rate=0.01),
+model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=0.01),
               loss=tf.keras.losses.MeanSquaredError(),
               metrics=['mse'])
 
@@ -65,27 +83,27 @@ model.summary()
 
 # train in batch sizes of 128.
 BATCH_SIZE = 128
-NUM_EPOCHS = 50
+NUM_EPOCHS = 5000
 NUM_CHUNKS = split
 
 X, y = np.sum(x_train, axis=2), np.sum(y_train, axis=2)
 Xv, yv = np.sum(x_test, axis=2), np.sum(y_test, axis=2)
 model.fit(X, y, validation_data=(Xv, yv), batch_size=BATCH_SIZE, epochs=NUM_EPOCHS)
 
-for epoch in range(NUM_EPOCHS):
-    print('epoch #{}'.format(epoch))
-    for i in range(NUM_CHUNKS):
-        # X, y = x_train[i, :, 60:61].T, y_train[i, :, 60]
-        X, y = np.array([np.sum(x_train[i], axis=1)]), np.sum(y_train[i], axis=1)
-        Xv, yv = np.array([np.sum(x_train[i], axis=1)]), np.sum(y_train[i], axis=1)
-
-        # model.fit does train the model incrementally. ie. Can call multiple times in batches.
-        # https://github.com/keras-team/keras/issues/4446
-        model.fit(x=np.array(X), y=np.array(y), validation_data=(X, y), batch_size=BATCH_SIZE)
-
-    # shuffle the chunks so they're not in the same order next time around.
-    np.random.shuffle(X_chunks)
-    np.random.shuffle(Y_chunks)
+# for epoch in range(NUM_EPOCHS):
+#     print('epoch #{}'.format(epoch))
+#     for i in range(NUM_CHUNKS):
+#         # X, y = x_train[i, :, 60:61].T, y_train[i, :, 60]
+#         X, y = np.array([np.sum(x_train[i], axis=1)]), np.sum(y_train[i], axis=1)
+#         Xv, yv = np.array([np.sum(x_train[i], axis=1)]), np.sum(y_train[i], axis=1)
+#
+#         # model.fit does train the model incrementally. ie. Can call multiple times in batches.
+#         # https://github.com/keras-team/keras/issues/4446
+#         model.fit(x=np.array(X), y=np.array(y), validation_data=(X, y), batch_size=BATCH_SIZE)
+#
+#     # shuffle the chunks so they're not in the same order next time around.
+#     np.random.shuffle(X_chunks)
+#     np.random.shuffle(Y_chunks)
 
 
 # # VALIDATION
