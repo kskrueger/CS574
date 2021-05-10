@@ -36,7 +36,7 @@ for i in range(0, num_timesteps):
 np.random.shuffle(X_chunks)
 np.random.shuffle(Y_chunks)
 
-split = int(num_timesteps*.7)
+split = 512  # int(num_timesteps*.7)
 x_train = X_chunks[:split]
 x_test = X_chunks[split:]
 y_train = Y_chunks[:split]
@@ -68,11 +68,16 @@ BATCH_SIZE = 128
 NUM_EPOCHS = 50
 NUM_CHUNKS = split
 
+X, y = np.sum(x_train, axis=2), np.sum(y_train, axis=2)
+Xv, yv = np.sum(x_test, axis=2), np.sum(y_test, axis=2)
+model.fit(X, y, validation_data=(Xv, yv), batch_size=BATCH_SIZE, epochs=NUM_EPOCHS)
+
 for epoch in range(NUM_EPOCHS):
     print('epoch #{}'.format(epoch))
     for i in range(NUM_CHUNKS):
         # X, y = x_train[i, :, 60:61].T, y_train[i, :, 60]
         X, y = np.array([np.sum(x_train[i], axis=1)]), np.sum(y_train[i], axis=1)
+        Xv, yv = np.array([np.sum(x_train[i], axis=1)]), np.sum(y_train[i], axis=1)
 
         # model.fit does train the model incrementally. ie. Can call multiple times in batches.
         # https://github.com/keras-team/keras/issues/4446
